@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SF Waymo Fleet Estimator (Hybrid)</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js for histogram -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- TensorFlow.js (in case you add a real model later) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.3.0/dist/tf.min.js"></script>
+</head>
+
+<body>
+  <header>
+    <h1>San Francisco Waymo Fleet Estimator (Hybrid)</h1>
+    <p>
+      This dashboard blends fleet stats, trips-per-day estimates, and live
+      camera observations to estimate how many Waymo vehicles are active in
+      San Francisco on a typical day.
+    </p>
+  </header>
+
+  <main>
+
+    <!-- SENSOR SECTION -->
+    <section class="card">
+      <h2>Live Camera Observations</h2>
+
+      <p class="hint">
+        The tool fetches camera images (from <code>cameras.json</code>) and
+        runs a small visual heuristic to detect possible Waymos, scaling that
+        up to a citywide estimate.
+      </p>
+
+      <div class="results-grid">
+        <div class="result-block">
+          <h3>Current Observed</h3>
+          <p><strong>Detections:</strong> <span id="observedDetections">–</span></p>
+          <p><strong>Sampled Cameras:</strong> <span id="observedCameras">–</span></p>
+        </div>
+
+        <div class="result-block">
+          <h3>Citywide Estimate</h3>
+          <p><strong>Active Waymos:</strong> <span id="sensorEstimate">–</span></p>
+          <p><strong>Coverage Fraction:</strong> <span id="coverageFractionLabel">–</span></p>
+        </div>
+      </div>
+
+      <div class="input-row">
+        <label for="coverageFraction">Coverage fraction (0–1)</label>
+        <input id="coverageFraction" type="number" min="0.01" max="1" step="0.01" value="0.10" />
+        <span class="hint">This is your guess for what fraction of the whole SF fleet is visible on the cameras at any given time.</span>
+      </div>
+
+      <button id="toggleSensorButton">Start camera sampling</button>
+      <p id="sensorStatus" class="status"></p>
+    </section>
+
+    <!-- MODEL INPUTS -->
+    <section class="card">
+      <h2>Model Inputs</h2>
+      <form id="inputs-form">
+        
+        <div class="input-row">
+          <label for="fleetSize">Total Waymo fleet in Bay Area</label>
+          <input id="fleetSize" type="number" value="800" min="1" />
+        </div>
+
+        <div class="input-row">
+          <label>Share of Bay Area fleet in SF (%)</label>
+          <div class="inline-inputs">
+            <input id="sfShareMin" type="number" value="40" min="0" max="100" />
+            <span>to</span>
+            <input id="sfShareMax" type="number" value="80" min="0" max="100" />
+          </div>
+        </div>
+
+        <div class="input-row">
+          <label>Utilization of active vehicles (%)</label>
+          <div class="inline-inputs">
+            <input id="utilMin" type="number" value="40" min="0" max="100" />
+            <span>to</span>
+            <input id="utilMax" type="number" value="80" min="0" max="100" />
+          </div>
+        </div>
+
+        <div class="input-row">
+          <label for="tripsPerDay">Total driverless trips per day (SF)</label>
+          <input id="tripsPerDay" type="number" value="4300" min="0" />
+        </div>
+
+        <div class="input-row">
+          <label>Trips per vehicle per day</label>
+          <div class="inline-inputs">
+            <input id="tripsPerCarMin" type="number" value="10" min="1" />
+            <span>to</span>
+            <input id="tripsPerCarMax" type="number" value="25" min="1" />
+          </div>
+        </div>
+
+        <div class="input-row">
+          <label for="samples">Monte Carlo samples</label>
+          <input id="samples" type="number" min="1000" step="1000" value="50000" />
+        </div>
+
+        <div class="input-row">
+          <label for="sensorWeight">Weight on sensor estimate (0–1)</label>
+          <input id="sensorWeight" type="number" min="0" max="1" step="0.01" value="0.33" />
+        </div>
+
+        <button id="runButton" type="submit">Run Simulation</button>
+        <p id="statusMessage" class="status"></p>
+
+      </form>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="card">
+      <h2>Results</h2>
+
+      <div class="results-grid">
+        <div class="result-block">
+          <h3>Fleet-based</h3>
+          <p><strong>Mean:</strong> <span id="fleetMean">–</span></p>
+          <p><strong>5th–95th:</strong> <span id="fleetRange">–</span></p>
+        </div>
+
+        <div class="result-block">
+          <h3>Trip-based</h3>
+          <p><strong>Mean:</strong> <span id="tripMean">–</span></p>
+          <p><strong>5th–95th:</strong> <span id="tripRange">–</span></p>
+        </div>
+
+        <div class="result-block">
+          <h3>Sensor-based</h3>
+          <p><strong>Mean:</strong> <span id="sensorMean">–</span></p>
+          <p><strong>5th–95th:</strong> <span id="sensorRange">–</span></p>
+        </div>
+
+        <div class="result-block">
+          <h3>Blended</h3>
+          <p><strong>Mean:</strong> <span id="blendMean">–</span></p>
+          <p><strong>5th–95th:</strong> <span id="blendRange">–</span></p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- HISTOGRAM -->
+    <section class="card">
+      <h2>Distribution of Blended Estimates</h2>
+      <canvas id="histogramCanvas" width="800" height="260"></canvas>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>
+      This dashboard is a rough estimator. Replace <code>cameras.json</code> with
+      real traffic camera URLs for live observations.
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
